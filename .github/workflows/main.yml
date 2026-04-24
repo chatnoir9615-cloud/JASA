@@ -1,0 +1,121 @@
+name: 日本株AI投資支援システム
+
+on:
+  schedule:
+    # 緊急監視: 平日 9:05/12:35 JST (00:05/03:35 UTC)
+    - cron: '5 0 * * 1-5'
+    - cron: '35 3 * * 1-5'
+    # メイン解析: 平日 17:15 JST (08:15 UTC)
+    - cron: '15 8 * * 1-5'
+    # ニュース分析: 日曜 21:00 JST (12:00 UTC)
+    - cron: '0 12 * * 0'
+    # キャッシュ再構築: 日曜 2:00 JST (17:00 UTC 土曜)
+    - cron: '0 17 * * 6'
+  workflow_dispatch:
+    inputs:
+      schedule_type:
+        description: '実行モード'
+        # FIX: type: choice を使用して無効な値を入力不可にする
+        type: choice
+        options:
+          - main
+          - emergency
+          - news
+          - rebuild_cache
+        default: 'main'
+  # FIX: push トリガーを削除（コード修正のたびに LINE 誤通知が発生するため）
+
+env:
+  PYTHONUNBUFFERED: "1"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  stock-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python 3.12 セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: pipキャッシュ復元
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-3.12-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-3.12-
+
+      - name: 依存パッケージインストール
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: OHLCVキャッシュをアーティファクトから復元
+        id: restore-cache
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: ohlcv-cache
+          path: cache/
+          if_no_artifact_found: ignore
+          workflow_conclusion: success
+        continue-on-error: true
+
+      - name: スケジュールタイプの決定
+        run: |
+          TYPE="main"
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            CRON="${{ github.event.schedule }}"
+            if [ "$CRON" == "5 0 * * 1-5" ] || [ "$CRON" == "35 3 * * 1-5" ]; then
+              TYPE="emergency"
+            elif [ "$CRON" == "15 8 * * 1-5" ]; then
+              TYPE="main"
+            elif [ "$CRON" == "0 12 * * 0" ]; then
+              TYPE="news"
+            elif [ "$CRON" == "0 17 * * 6" ]; then
+              TYPE="rebuild_cache"
+            fi
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            TYPE="${{ github.event.inputs.schedule_type }}"
+          fi
+          # FIX: $GITHUB_ENV への書き込みのみで十分（run の env ブロックへの二重渡しを削除）
+          echo "SCHEDULE_TYPE=$TYPE" >> $GITHUB_ENV
+
+      - name: メイン解析スクリプト実行
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_HOLDINGS: ${{ secrets.GEMINI_API_KEY_HOLDINGS }}
+          GEMINI_API_KEY_ASSET: ${{ secrets.GEMINI_API_KEY_ASSET }}
+          GEMINI_API_KEY_DEEP: ${{ secrets.GEMINI_API_KEY_DEEP }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+          # FIX: SCHEDULE_TYPE は $GITHUB_ENV 経由で自動注入されるため明示的な渡しは不要だが、
+          #      明示することで可読性が高まるため残す（冗長だが害はない）
+          SCHEDULE_TYPE: ${{ env.SCHEDULE_TYPE }}
+        run: python main.py
+
+      - name: OHLCVキャッシュをアーティファクトとして保存
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ohlcv-cache
+          path: cache/ohlcv_cache.json
+          retention-days: 20
+          overwrite: true
+
+      - name: holdings.jsonをアーティファクトとして保存
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: holdings-${{ github.run_number }}
+          path: holdings.json
+          retention-days: 20

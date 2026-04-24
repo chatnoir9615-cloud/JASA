@@ -1,0 +1,27 @@
+# 環境変数ファイル（APIキーが含まれるため絶対にコミットしない）
+.env
+_environ
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+.Python
+
+# 仮想環境
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# OHLCVキャッシュ（GitHub Actions の cache 機能で管理）
+# cache/      ← # を追加してコメントアウト
+*.tmp

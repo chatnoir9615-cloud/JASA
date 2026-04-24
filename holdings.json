@@ -1,0 +1,323 @@
+{
+  "holdings": [
+    {
+      "symbol": "5563.T",
+      "name": "新日本電工",
+      "purchase_price": 445.0,
+      "quantity": 100,
+      "currency": "JPY",
+      "stage": "half"
+    },
+    {
+      "symbol": "9432.T",
+      "name": "NTT（日本電信電話）",
+      "purchase_price": 151.3,
+      "quantity": 400,
+      "currency": "JPY",
+      "stage": "full"
+    },
+    {
+      "symbol": "9434.T",
+      "name": "ソフトバンク",
+      "purchase_price": 218.0,
+      "quantity": 100,
+      "currency": "JPY",
+      "stage": "half"
+    },
+    {
+      "symbol": "2484.T",
+      "name": "出前館",
+      "purchase_price": 122.4,
+      "quantity": 100,
+      "currency": "JPY",
+      "stage": "half"
+    },
+    {
+      "symbol": "7991.T",
+      "name": "マミヤ・オーピー",
+      "purchase_price": 1323.0,
+      "quantity": 100,
+      "currency": "JPY",
+      "stage": "half"
+    },
+    {
+      "symbol": "9193.T",
+      "name": "東京汽船",
+      "purchase_price": 1071.0,
+      "quantity": 100,
+      "currency": "JPY",
+      "stage": "half"
+    },
+    {
+      "symbol": "9716.T",
+      "name": "乃村工藝社",
+      "purchase_price": 1232.1,
+      "quantity": 100,
+      "currency": "JPY",
+      "stage": "half"
+    },
+    {
+      "symbol": "3911.T",
+      "name": "Aiming",
+      "purchase_price": 192.4,
+      "quantity": 100,
+      "currency": "JPY",
+      "stage": "half"
+    },
+    {
+      "symbol": "2930.T",
+      "name": "北の達人コーポレーション",
+      "purchase_price": 138.7,
+      "quantity": 100,
+      "currency": "JPY",
+      "stage": "half"
+    },
+    {
+      "symbol": "2334.T",
+      "name": "イオレ",
+      "purchase_price": 432.5,
+      "quantity": 100,
+      "currency": "JPY",
+      "stage": "half"
+    },
+    {
+      "symbol": "1435.T",
+      "name": "robot home",
+      "purchase_price": 224.7,
+      "quantity": 100,
+      "currency": "JPY",
+      "stage": "half"
+    },
+    {
+      "symbol": "244A.T",
+      "name": "グロースエクスパートナーズ",
+      "purchase_price": 1154.0,
+      "quantity": 100,
+      "currency": "JPY",
+      "stage": "half"
+    },
+    {
+      "symbol": "5020.T",
+      "name": "ＥＮＥＯＳホールディングス",
+      "purchase_price": 1317.7,
+      "quantity": 200,
+      "currency": "JPY",
+      "stage": "full"
+    }
+  ],
+  "asset_value": [
+    {
+      "symbol": "1443.T",
+      "name": "技研ＨＬＤＧ"
+    },
+    {
+      "symbol": "3955.T",
+      "name": "イムラ"
+    },
+    {
+      "symbol": "4231.T",
+      "name": "タイガースポリマー"
+    },
+    {
+      "symbol": "4243.T",
+      "name": "ニックス"
+    },
+    {
+      "symbol": "4623.T",
+      "name": "アサヒペン"
+    },
+    {
+      "symbol": "5408.T",
+      "name": "中山製鋼所"
+    },
+    {
+      "symbol": "5446.T",
+      "name": "北越メタル"
+    },
+    {
+      "symbol": "5956.T",
+      "name": "トーソー"
+    },
+    {
+      "symbol": "5962.T",
+      "name": "浅香工業"
+    },
+    {
+      "symbol": "5966.T",
+      "name": "京都機械工具"
+    },
+    {
+      "symbol": "5970.T",
+      "name": "ジーテクト"
+    },
+    {
+      "symbol": "5997.T",
+      "name": "協立エアテック"
+    },
+    {
+      "symbol": "6257.T",
+      "name": "藤商事"
+    },
+    {
+      "symbol": "7219.T",
+      "name": "エッチ・ケー・エス"
+    },
+    {
+      "symbol": "7486.T",
+      "name": "サンリン"
+    },
+    {
+      "symbol": "8230.T",
+      "name": "はせがわ"
+    },
+    {
+      "symbol": "9846.T",
+      "name": "天満屋ストア"
+    }
+  ],
+  "deep_value": [
+    {
+      "symbol": "2652.T",
+      "name": "まんだらけ"
+    },
+    {
+      "symbol": "288A.T",
+      "name": "ラクサス・テクノロジーズ"
+    },
+    {
+      "symbol": "3452.T",
+      "name": "ビーロット"
+    },
+    {
+      "symbol": "3640.T",
+      "name": "電算"
+    },
+    {
+      "symbol": "3683.T",
+      "name": "サイバーリンクス"
+    },
+    {
+      "symbol": "3834.T",
+      "name": "朝日ネット"
+    },
+    {
+      "symbol": "4976.T",
+      "name": "東洋ドライルーブ"
+    },
+    {
+      "symbol": "5363.T",
+      "name": "東京窯業"
+    },
+    {
+      "symbol": "5533.T",
+      "name": "エリッツＨＬＤＧ"
+    },
+    {
+      "symbol": "6069.T",
+      "name": "トレンダーズ"
+    },
+    {
+      "symbol": "6246.T",
+      "name": "テクノスマート"
+    },
+    {
+      "symbol": "6342.T",
+      "name": "太平製作所"
+    },
+    {
+      "symbol": "6392.T",
+      "name": "ヤマダコーポレーション"
+    },
+    {
+      "symbol": "6405.T",
+      "name": "鈴茂器工"
+    },
+    {
+      "symbol": "6626.T",
+      "name": "ＳＥＭＩＴＥＣ"
+    },
+    {
+      "symbol": "6797.T",
+      "name": "名古屋電機工業"
+    },
+    {
+      "symbol": "7213.T",
+      "name": "レシップＨＬＤＧ"
+    },
+    {
+      "symbol": "9049.T",
+      "name": "京福電気鉄道"
+    }
+  ],
+  "purchased": [
+    {
+      "symbol": "2484.T",
+      "name": "出前館",
+      "moved_from": "deep_value",
+      "moved_at": "2026-04-18"
+    },
+    {
+      "symbol": "7991.T",
+      "name": "マミヤ・オーピー",
+      "moved_from": "deep_value",
+      "moved_at": "2026-04-18"
+    },
+    {
+      "symbol": "9193.T",
+      "name": "東京汽船",
+      "moved_from": "asset_value",
+      "moved_at": "2026-04-18"
+    },
+    {
+      "symbol": "9716.T",
+      "name": "乃村工藝社",
+      "moved_from": "deep_value",
+      "moved_at": "2026-04-18"
+    },
+    {
+      "symbol": "3911.T",
+      "name": "Ａｉｍｉｎｇ",
+      "moved_from": "deep_value",
+      "moved_at": "2026-04-20"
+    },
+    {
+      "symbol": "244A.T",
+      "name": "グロースエクスパートナーズ",
+      "moved_from": "deep_value",
+      "moved_at": "2026-04-24"
+    }
+  ],
+  "disabled": [
+    {
+      "comment": "--- 以下、データ取得エラー銘柄 ---"
+    },
+    {
+      "symbol": "1999.T",
+      "name": "サイタＨＬＤＧ"
+    },
+    {
+      "symbol": "3504.T",
+      "name": "丸八ＨＬＤＧ"
+    },
+    {
+      "symbol": "5607.T",
+      "name": "中央可鍛工業"
+    },
+    {
+      "symbol": "9040.T",
+      "name": "大宝運輸"
+    },
+    {
+      "symbol": "231A.T",
+      "name": "Ｃｒｏｓｓ　Ｅ　ＨＬＤＧ"
+    },
+    {
+      "symbol": "242A.T",
+      "name": "リプライオリティ"
+    },
+    {
+      "symbol": "6076.T",
+      "name": "アメイズ"
+    }
+  ]
+}
