@@ -157,20 +157,6 @@ def _send_market_warning(notifier: LineNotifier, market_downtrend: bool, vi: flo
         time.sleep(1)
 
 
-def _build_screen_report(results: list[dict]) -> str:
-    """スクリーニング結果をLINE通知用テキストに整形する。"""
-    lines = []
-    for r in results:
-        tag_str    = "".join(f"【{t}】" for t in r.get("fund_tags", [])) or "【-】"
-        fund_label = r.get("fund_label", "")
-        lines.append(
-            f"■{r['name']}({r['symbol']}) {tag_str}\n"
-            f"  現在値: {r['price']}円 / RSI:{r['metrics']['RSI']} / ATR:{r['metrics']['ATR']}円\n"
-            f"{fund_label}"
-        )
-    return "\n\n".join(lines)
-
-
 def main():
     schedule_type = os.environ.get("SCHEDULE_TYPE", "main")
 
@@ -259,24 +245,77 @@ def main():
     )
 
     # ─────────────────────────────────────────────────────────────
-    # Step 6: スクリーニング結果 → LINE通知（AIレポート + タグ表示）
+    # Step 6: スクリーニング結果 → LINE通知（ファンダ＋AI統合・5銘柄×2通）
     # ─────────────────────────────────────────────────────────────
     logging.info("Step 6: スクリーニング結果レポート作成...")
     if screen_results:
-        # ファンダメンタルズタグ付きサマリーをまず送信
-        fund_report = _build_screen_report(screen_results)
-        notifier.send_report(
-            f"【💹 指数銘柄スクリーニング 上位{len(screen_results)}銘柄】\n\n{fund_report}"
-        )
-        time.sleep(1)
-
-        # AIによる詳細レポート
         advisor = AIAdvisor(api_key_env="GEMINI_API_KEY")
-        text    = advisor.get_batch_advice(screen_results)
-        notifier.send_report(
-            f"【💹 スクリーニング AIレポート】\nモデル: {advisor.model_id}\n\n"
-            + (text or "AI解析失敗")
-        )
+
+        # 5銘柄ずつ2バッチに分割して送信
+        batch_size = 5
+        total = len(screen_results)
+        for batch_num, start in enumerate(range(0, total, batch_size), 1):
+            batch = screen_results[start:start + batch_size]
+
+            # AI解析（バッチ単位）
+            ai_text = advisor.get_batch_advice(batch) or "AI解析失敗"
+
+            # AI出力を銘柄ごとにブロック分割（■ で始まる行を区切りとして使用）
+            ai_blocks: dict[str, str] = {}
+            current_key = None
+            current_lines: list[str] = []
+            for line in ai_text.splitlines():
+                if line.startswith("■"):
+                    if current_key is not None:
+                        ai_blocks[current_key] = "\n".join(current_lines).strip()
+                    # 銘柄名またはシンボルでキーを特定
+                    current_key = line
+                    current_lines = [line]
+                else:
+                    current_lines.append(line)
+            if current_key is not None:
+                ai_blocks[current_key] = "\n".join(current_lines).strip()
+
+            # ファンダ情報＋AIレポートを銘柄ごとに統合
+            merged_lines: list[str] = []
+            for i, r in enumerate(batch):
+                fund_label = r.get("fund_label", "")
+                price      = r["price"]
+                rsi        = r["metrics"]["RSI"]
+                atr        = r["metrics"]["ATR"]
+                name       = r["name"]
+                symbol     = r["symbol"]
+
+                # ファンダ情報（タグ・決算期・指標）
+                fund_block = (
+                    f"■{name}({symbol})\n"
+                    f"  現在値:{price}円 / RSI:{rsi} / ATR:{atr}円\n"
+                    f"{fund_label}"
+                )
+
+                # 対応するAIブロックを探す（銘柄名またはシンボルが含まれるキー）
+                ai_block = ""
+                for key, block in ai_blocks.items():
+                    if name in key or symbol in key:
+                        # ■行（重複）を除いてAI部分だけ抽出
+                        ai_lines = [l for l in block.splitlines() if not l.startswith("■")]
+                        ai_block = "\n".join(ai_lines).strip()
+                        break
+
+                merged = fund_block
+                if ai_block:
+                    merged += "\n" + ai_block
+                merged_lines.append(merged)
+
+            report = (
+                f"【💹 指数銘柄スクリーニング】\n"
+                f"({batch_num}/{(total + batch_size - 1) // batch_size}) "
+                f"モデル: {advisor.model_id}\n\n"
+                + "\n\n".join(merged_lines)
+            )
+            notifier.send_report(report)
+            if start + batch_size < total:
+                time.sleep(1)
     else:
         notifier.send_report("【💹 スクリーニング通知】\n該当銘柄なし")
 

@@ -1,9 +1,9 @@
 """JPX指数銘柄スクリーニング。
 
-- 日経225・TOPIX100・TOPIX500 構成銘柄を対象にスクリーニング
-- ファンダメンタルズ条件で【資産】【収益】タグを付与
+- data/nikkei225.csv から手動管理の構成銘柄リストを読み込む
+- ファンダメンタルズ条件で【資産】【収益】【高配当？】タグを付与
 - OHLCVキャッシュは MarketDataCache（market_cache.py）に統一
-- 銘柄リスト自体は index_symbols_cache.json に7日間キャッシュ
+- 年1回（10月）の銘柄入れ替え時のみ data/nikkei225.csv を手動更新
 """
 
 import json
@@ -11,6 +11,7 @@ import logging
 import os
 import time
 from datetime import date, timedelta
+from pathlib import Path
 
 import pandas as pd
 import pandas_ta as ta
@@ -18,18 +19,16 @@ import yfinance as yf
 
 from .market_cache import MarketDataCache
 
+_INDEX_CSV_PATHS = [
+    "data/nikkei225.csv",   # 日経225（年2回更新）
+    "data/topix100.csv",    # TOPIX100（年1回更新）
+]
 _INDEX_CACHE_PATH    = "cache/index_symbols_cache.json"
 _SYMBOL_TTL_DAYS     = 7
 _MIN_VOLUME          = 50_000
 _BATCH_SIZE          = 50
 _BATCH_SLEEP         = 2
 _REBUILD_PERIOD_DAYS = 365
-
-_JPX_INDEX_URLS = {
-    "nikkei225": "https://www.jpx.co.jp/markets/indices/nikkei-indexes/b5b4pj000000jnvr-att/mkc150cj_a.xls",
-    "topix100":  "https://www.jpx.co.jp/markets/indices/topix/b5b4pj000000jnvr-att/mkc150cj_b.xls",
-    "topix500":  "https://www.jpx.co.jp/markets/indices/topix/b5b4pj000000jnvr-att/mkc150cj_c.xls",
-}
 
 _JPX_LIST_URL = (
     "https://www.jpx.co.jp/markets/statistics-equities/misc/"
@@ -61,62 +60,45 @@ class StockScreener:
     def __init__(self, cache: MarketDataCache | None = None):
         self.cache = cache or MarketDataCache()
 
-    # ── 指数構成銘柄リスト取得 ───────────────────────────────────────────
+    # ── 指数構成銘柄リスト取得（CSV手動管理） ────────────────────────────
 
     def get_index_symbols(self) -> tuple[list[str], dict[str, str]]:
-        cached = self._load_index_cache()
-        if cached:
-            counts = cached.get("counts", {})
-            logging.info(
-                f"指数銘柄リストをキャッシュから読み込み: {len(cached['symbols'])}銘柄 "
-                f"(日経225:{counts.get('nikkei225',0)} / "
-                f"TOPIX100:{counts.get('topix100',0)} / "
-                f"TOPIX500:{counts.get('topix500',0)})"
-            )
-            return cached["symbols"], cached.get("names", {})
+        """data/*.csv から銘柄リストを読み込んで返す（重複除去）。
 
+        対応ファイル: data/nikkei225.csv, data/topix100.csv
+        いずれも存在しない場合は JPX全銘柄リストにフォールバックする。
+        更新タイミング: 年1〜2回（各指数の銘柄入れ替え時）に手動更新。
+        """
         all_symbols: list[str] = []
         all_names: dict[str, str] = {}
-        counts: dict[str, int] = {}
+        loaded_any = False
 
-        for index_name, url in _JPX_INDEX_URLS.items():
+        for csv_path in _INDEX_CSV_PATHS:
+            if not os.path.exists(csv_path):
+                logging.debug(f"{csv_path} が見つかりません。スキップします。")
+                continue
             try:
-                symbols, names = self._fetch_index_list(url)
-                counts[index_name] = len(symbols)
-                for s in symbols:
-                    if s not in all_symbols:
-                        all_symbols.append(s)
-                all_names.update(names)
-                logging.info(f"[{index_name}] {len(symbols)}銘柄取得")
-                time.sleep(1)
+                df = pd.read_csv(csv_path, dtype={"code": str}, comment="#")
+                df["code"] = df["code"].str.strip().str.zfill(4)
+                for _, row in df.iterrows():
+                    symbol = f"{row['code']}.T"
+                    if symbol not in all_symbols:
+                        all_symbols.append(symbol)
+                    all_names[symbol] = row.get("name", "")
+                loaded_any = True
+                logging.info(f"指数銘柄CSVを読み込み: {csv_path} ({len(df)}銘柄)")
             except Exception as e:
-                logging.warning(f"[{index_name}] 銘柄リスト取得失敗（スキップ）: {e}")
+                logging.error(f"{csv_path} の読み込み失敗: {e}")
 
-        if not all_symbols:
-            logging.error("全指数の銘柄リスト取得失敗。JPX全銘柄にフォールバックします。")
+        if not loaded_any:
+            logging.warning("指数銘柄CSVが見つかりません。JPX全銘柄にフォールバックします。")
             return self._fallback_all_symbols()
 
-        logging.info(f"指数銘柄リスト取得完了: {len(all_symbols)}銘柄（重複除去後）")
-        self._save_index_cache(all_symbols, all_names, counts)
+        logging.info(f"指数銘柄リスト合計: {len(all_symbols)}銘柄（重複除去済み）")
         return all_symbols, all_names
 
-    def _fetch_index_list(self, url: str) -> tuple[list[str], dict[str, str]]:
-        df = pd.read_excel(url, header=0)
-        code_cols = [c for c in df.columns if "コード" in str(c) or "Code" in str(c)]
-        name_cols = [c for c in df.columns if "銘柄名" in str(c) or "Name" in str(c) or "名称" in str(c)]
-        if not code_cols:
-            raise ValueError(f"コード列が見つかりません。列名: {list(df.columns)}")
-        codes = df[code_cols[0]].dropna().astype(str).str.strip()
-        codes = codes[codes.str.match(r'^\d{4}$|^[0-9A-Z]{4,5}$')]
-        symbols = [f"{code}.T" for code in codes]
-        names: dict[str, str] = {}
-        if name_cols:
-            name_series = df[name_cols[0]].fillna("")
-            for code, name in zip(codes, name_series[codes.index]):
-                names[f"{code}.T"] = str(name).strip()
-        return symbols, names
-
     def _fallback_all_symbols(self) -> tuple[list[str], dict[str, str]]:
+        """CSVなし・読み込み失敗時のフォールバック: JPX全銘柄リストを使用。"""
         try:
             df = pd.read_excel(_JPX_LIST_URL, header=0)
             code_col  = [c for c in df.columns if "コード" in str(c)][0]
@@ -180,13 +162,12 @@ class StockScreener:
 
     def _judge_tags(self, fund: dict) -> list[str]:
         tags = []
-
         per = fund.get("per")
         pbr = fund.get("pbr")
         er  = fund.get("equity_ratio")
         dy  = fund.get("dividend_yield")
 
-        # 【資産】: データあり かつ 条件NGが1つもなければ付与
+        # 【資産】
         asset_ok = True
         if per is not None and per > _ASSET_COND["per"]["max"]:
             asset_ok = False
@@ -215,8 +196,7 @@ class StockScreener:
         if profit_ok:
             tags.append("収益")
 
-        # 【高配当？】: 配当利回り ≥ 3.8% かつ PER ≤ 18倍のみ付与（要手動確認）
-        # どちらか一方のみ・データなしの場合はタグなし
+        # 【高配当？】: 配当利回り ≥ 3.8% かつ PER ≤ 18倍のみ付与
         dy_ok  = dy is not None and dy >= 3.8
         per_ok = per is not None and per <= 18.0
         if dy_ok and per_ok:
@@ -244,6 +224,7 @@ class StockScreener:
     # ── キャッシュ構築のみ（rebuild_cacheモード用） ──────────────────────
 
     def build_cache_only(self, exclude_symbols: set[str]) -> None:
+        """全銘柄のOHLCVキャッシュ構築のみ実行。rebuild_cacheモード専用。"""
         try:
             df = pd.read_excel(_JPX_LIST_URL, header=0)
             code_col = [c for c in df.columns if "コード" in str(c)][0]
@@ -399,31 +380,3 @@ class StockScreener:
         except Exception as e:
             logging.debug(f"スキップ [{symbol}]: {e}")
             return None
-
-    # ── キャッシュ I/O ───────────────────────────────────────────────────
-
-    def _load_index_cache(self) -> dict | None:
-        if not os.path.exists(_INDEX_CACHE_PATH):
-            return None
-        try:
-            with open(_INDEX_CACHE_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if (date.today() - date.fromisoformat(data["cached_at"])).days > _SYMBOL_TTL_DAYS:
-                logging.info("指数銘柄リストキャッシュ期限切れ。再取得します。")
-                return None
-            return data
-        except Exception as e:
-            logging.warning(f"指数銘柄リストキャッシュ読み込み失敗: {e}")
-            return None
-
-    def _save_index_cache(self, symbols: list[str], names: dict[str, str], counts: dict[str, int]) -> None:
-        os.makedirs(os.path.dirname(_INDEX_CACHE_PATH), exist_ok=True)
-        try:
-            with open(_INDEX_CACHE_PATH, "w", encoding="utf-8") as f:
-                json.dump(
-                    {"cached_at": date.today().isoformat(), "symbols": symbols, "names": names, "counts": counts},
-                    f, ensure_ascii=False,
-                )
-            logging.info(f"指数銘柄リストをキャッシュに保存: {len(symbols)}銘柄")
-        except Exception as e:
-            logging.warning(f"指数銘柄リストキャッシュ保存失敗: {e}")
