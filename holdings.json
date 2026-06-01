@@ -1,28 +1,20 @@
 {
   "holdings": [
     {
-      "symbol": "5563.T",
-      "name": "新日本電工",
-      "purchase_price": 445.0,
-      "quantity": 100,
-      "currency": "JPY",
-      "stage": "half"
-    },
-    {
       "symbol": "9432.T",
-      "name": "NTT（日本電信電話）",
-      "purchase_price": 151.3,
-      "quantity": 400,
+      "name": "NTT",
+      "purchase_price": 151.03,
+      "quantity": 700,
       "currency": "JPY",
       "stage": "full"
     },
     {
       "symbol": "9434.T",
       "name": "ソフトバンク",
-      "purchase_price": 218.0,
+      "purchase_price": 217.8,
       "quantity": 100,
       "currency": "JPY",
-      "stage": "half"
+      "stage": "full"
     },
     {
       "symbol": "2484.T",
@@ -31,54 +23,6 @@
       "quantity": 100,
       "currency": "JPY",
       "stage": "half"
-    },
-    {
-      "symbol": "7991.T",
-      "name": "マミヤ・オーピー",
-      "purchase_price": 1323.0,
-      "quantity": 100,
-      "currency": "JPY",
-      "stage": "half"
-    },
-    {
-      "symbol": "9193.T",
-      "name": "東京汽船",
-      "purchase_price": 1071.0,
-      "quantity": 100,
-      "currency": "JPY",
-      "stage": "half"
-    },
-    {
-      "symbol": "3911.T",
-      "name": "Aiming",
-      "purchase_price": 192.4,
-      "quantity": 100,
-      "currency": "JPY",
-      "stage": "half"
-    },
-    {
-      "symbol": "2334.T",
-      "name": "イオレ",
-      "purchase_price": 432.5,
-      "quantity": 100,
-      "currency": "JPY",
-      "stage": "half"
-    },
-    {
-      "symbol": "2930.T",
-      "name": "北の達人コーポレーション",
-      "purchase_price": 138.7,
-      "quantity": 100,
-      "currency": "JPY",
-      "stage": "half"
-    },
-    {
-      "symbol": "5020.T",
-      "name": "ＥＮＥＯＳホールディングス",
-      "purchase_price": 1317.7,
-      "quantity": 200,
-      "currency": "JPY",
-      "stage": "full"
     }
   ],
   "purchased": [
