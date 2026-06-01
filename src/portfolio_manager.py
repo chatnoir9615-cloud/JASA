@@ -25,64 +25,102 @@ class PortfolioManager:
             logging.info("transactions.csv が見つかりません。holdings は変更しません。")
             return
 
-        df = pd.read_csv(self.csv_path)
+        # FIX: CSV読み込みエラーを明示的にキャッチしてログを残す
+        try:
+            df = pd.read_csv(
+                self.csv_path,
+                dtype={"symbol": str, "name": str, "type": str},
+                on_bad_lines="warn",   # FIX: 余分なカラムがある行をスキップせずに警告
+            )
+        except Exception as e:
+            logging.error(f"transactions.csv の読み込み失敗: {e}")
+            return
+
         if df.empty:
             return
 
-        df['date'] = pd.to_datetime(df['date'])
-        df = df.sort_values('date')
+        # FIX: 必須カラムの存在チェック
+        required_cols = {"date", "symbol", "type", "price", "quantity"}
+        missing = required_cols - set(df.columns)
+        if missing:
+            logging.error(f"transactions.csv に必須カラムがありません: {missing}")
+            return
+
+        # FIX: price/quantity の数値変換エラーを行単位で捕捉
+        df["price"]    = pd.to_numeric(df["price"],    errors="coerce")
+        df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce")
+        bad_rows = df[df["price"].isna() | df["quantity"].isna()]
+        if not bad_rows.empty:
+            logging.warning(
+                f"price/quantity が不正な行 {len(bad_rows)}件をスキップします:\n"
+                + bad_rows.to_string()
+            )
+            df = df.dropna(subset=["price", "quantity"])
+
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        bad_dates = df[df["date"].isna()]
+        if not bad_dates.empty:
+            logging.warning(f"date が不正な行 {len(bad_dates)}件をスキップします")
+            df = df.dropna(subset=["date"])
+
+        df = df.sort_values("date")
 
         # CSVの全取引から保有状況を計算
         portfolio = {}
         for _, row in df.iterrows():
-            symbol = row['symbol']
-            name = str(row.get('name', '') or '')
-            qty = row['quantity']
-            price = row['price']
+            symbol = str(row["symbol"]).strip()
+            name   = str(row.get("name", "") or "")
+            qty    = int(row["quantity"])
+            price  = float(row["price"])
+            tx_type = str(row["type"]).strip().lower()
+
             if qty <= 0:
                 continue
 
             if symbol not in portfolio:
                 portfolio[symbol] = {
-                    "symbol": symbol,
-                    "name": name,
+                    "symbol":         symbol,
+                    "name":           name,
                     "purchase_price": 0.0,
-                    "quantity": 0,
-                    "buy_count": 0,
-                    "history": []
+                    "quantity":       0,
+                    "buy_count":      0,
+                    "history":        [],
                 }
 
             p = portfolio[symbol]
             if name:
-                p['name'] = name
+                p["name"] = name
 
-            if row['type'] == 'buy':
-                total_cost = (p['purchase_price'] * p['quantity']) + (price * qty)
-                p['quantity'] += qty
-                p['buy_count'] += 1
-                if p['quantity'] > 0:
-                    p['purchase_price'] = round(total_cost / p['quantity'], 2)
-            elif row['type'] == 'sell':
-                p['quantity'] = max(0, p['quantity'] - qty)
+            if tx_type == "buy":
+                total_cost   = (p["purchase_price"] * p["quantity"]) + (price * qty)
+                p["quantity"]  += qty
+                p["buy_count"] += 1
+                if p["quantity"] > 0:
+                    p["purchase_price"] = round(total_cost / p["quantity"], 2)
+            elif tx_type == "sell":
+                p["quantity"] = max(0, p["quantity"] - qty)
+            else:
+                logging.warning(f"不明な取引種別 '{tx_type}' をスキップ: {row.to_dict()}")
+                continue
 
-            p['history'].append({
-                "date": row['date'].strftime('%Y-%m-%d'),
-                "type": row['type'],
+            p["history"].append({
+                "date":  row["date"].strftime("%Y-%m-%d"),
+                "type":  tx_type,
                 "price": price,
-                "qty": qty
+                "qty":   qty,
             })
 
         # 保有数量 > 0 の銘柄だけを holdings として確定
         new_holdings = [
             {
-                "symbol":         v['symbol'],
-                "name":           v['name'],
-                "purchase_price": v['purchase_price'],
-                "quantity":       v['quantity'],
+                "symbol":         v["symbol"],
+                "name":           v["name"],
+                "purchase_price": v["purchase_price"],
+                "quantity":       v["quantity"],
                 "currency":       "JPY",
-                "stage":          "full" if v['buy_count'] >= 2 else "half",
+                "stage":          "full" if v["buy_count"] >= 2 else "half",
             }
-            for v in portfolio.values() if v['quantity'] > 0
+            for v in portfolio.values() if v["quantity"] > 0
         ]
 
         self._write_json(new_holdings)
@@ -99,29 +137,28 @@ class PortfolioManager:
             data = {}
 
         # 既存 holdings のシンボルセット
-        old_symbols = {h['symbol'] for h in data.get("holdings", [])}
+        old_symbols = {h["symbol"] for h in data.get("holdings", [])}
         # 新規 holdings のシンボルセット
-        new_symbols = {h['symbol'] for h in new_holdings}
+        new_symbols = {h["symbol"] for h in new_holdings}
         # 今回新たに holdings に加わった銘柄
         added_symbols = new_symbols - old_symbols
 
         if added_symbols:
-            purchased = data.get("purchased", [])
-            purchased_symbols = {p['symbol'] for p in purchased}
+            purchased        = data.get("purchased", [])
+            purchased_symbols = {p["symbol"] for p in purchased}
 
             for watch_key in ("asset_value", "deep_value"):
                 remaining = []
                 for item in data.get(watch_key, []):
                     if item.get("symbol") in added_symbols:
-                        # purchased にまだ記録されていなければ追加
-                        if item['symbol'] not in purchased_symbols:
+                        if item["symbol"] not in purchased_symbols:
                             purchased.append({
-                                "symbol":     item['symbol'],
-                                "name":       item.get('name', ''),
+                                "symbol":     item["symbol"],
+                                "name":       item.get("name", ""),
                                 "moved_from": watch_key,
                                 "moved_at":   date.today().isoformat(),
                             })
-                            purchased_symbols.add(item['symbol'])
+                            purchased_symbols.add(item["symbol"])
                             logging.info(
                                 f"[purchased移動] {item['symbol']} "
                                 f"{item.get('name','')} ({watch_key} → purchased)"
