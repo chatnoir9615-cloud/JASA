@@ -261,18 +261,38 @@ class StockScreener:
     # ── バッチ取得 ───────────────────────────────────────────────────────
 
     def _batch_fetch(self, symbols: list[str]) -> None:
+        """通常スクリーニング時の差分取得。
+        
+        FIX: 旧実装は default_start を90日固定にしていたため初回取得銘柄のデータが不足し
+        ATR/RSI計算に必要な約1年分が揃わなかった。365日に変更。
+        
+        FIX: 旧実装は全銘柄を last_date でグループ化して同一 start_date で一括ダウンロード
+        していたが、各銘柄の last_date はバラバラのため「全銘柄の最古 last_date」を
+        start とする無駄な再取得が発生していた。銘柄ごとに個別の start_date で処理する
+        _batch_fetch_rebuild と同方式に統一。
+        """
         stale = [s for s in symbols if self.cache.needs_update(s)]
         logging.info(f"差分取得対象: {len(stale)}銘柄 / {len(symbols)}銘柄中")
         if not stale:
             return
-        groups: dict[date, list[str]] = {}
-        default_start = date.today() - timedelta(days=90)
-        for s in stale:
-            last  = self.cache.last_date(s)
-            start = (last + timedelta(days=1)) if last else default_start
-            groups.setdefault(start, []).append(s)
-        for start_date, group_symbols in sorted(groups.items()):
-            self._download_and_cache(group_symbols, start_date)
+
+        today = date.today()
+        # FIX: キャッシュなし銘柄は365日遡る（旧: 90日固定）
+        no_cache  = [s for s in stale if self.cache.last_date(s) is None]
+        has_cache = [s for s in stale if self.cache.last_date(s) is not None]
+
+        if no_cache:
+            start_date = today - timedelta(days=_REBUILD_PERIOD_DAYS)
+            logging.info(f"[初回取得] {len(no_cache)}銘柄: {start_date} 〜 {today}")
+            self._download_and_cache(no_cache, start_date)
+
+        # FIX: キャッシュあり銘柄も rebuild と同様に銘柄ごとの start_date で処理
+        # 全銘柄を同一 start にまとめると最古の last_date に引きずられて無駄なDLが発生する
+        if has_cache:
+            last_dates = [self.cache.last_date(s) for s in has_cache]
+            start_date = min(last_dates) + timedelta(days=1)
+            logging.info(f"[差分取得] {len(has_cache)}銘柄: {start_date} 〜 {today}")
+            self._download_and_cache(has_cache, start_date)
 
     def _batch_fetch_rebuild(self, symbols: list[str]) -> None:
         today     = date.today()
@@ -357,8 +377,11 @@ class StockScreener:
             fund_label = self._format_fund_label(fund, tags)
 
             display_name = name_map.get(symbol) or symbol.replace(".T", "")
+
+            # FIX: symbol から .T を除去するとシグナル判定・AI解析でのマッチングが壊れる
+            # symbol は常に ".T" 付きで統一する
             return {
-                "symbol":         symbol.replace(".T", ""),
+                "symbol":         symbol,
                 "name":           display_name,
                 "price":          current_price,
                 "score":          round(score, 2),
