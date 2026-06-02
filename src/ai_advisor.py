@@ -9,7 +9,8 @@ _RETRY_WAIT = 10
 
 # FIX: Unicode エスケープを直接文字列に変更（可読性改善）
 _SIGNAL_ICONS = {
-    "ADD_BUY":      "🟢買い乗せ",import os
+    "ADD_BUY":      "🟢買い乗せ",
+import os
 import re
 import time
 import logging
